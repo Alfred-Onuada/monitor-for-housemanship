@@ -3,18 +3,16 @@ config();
 
 const express = require("express");
 const { createClient } = require("redis");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
 const API_URL = process.env.API_URL;
 const REDIS_KEY = process.env.REDIS_KEY;
 const PORT = process.env.PORT || 3000;
 const JWT = process.env.JWT;
 
-const MAIL_HOST=process.env.MAIL_HOST;
-const MAIL_FROM=process.env.MAIL_FROM;
-const MAIL_TO=process.env.MAIL_TO;
-const MAIL_USER=process.env.MAIL_USER;
-const MAIL_PASS=process.env.MAIL_PASS;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const MAIL_FROM = process.env.MAIL_FROM;
+const MAIL_TO = process.env.MAIL_TO;
 
 const app = express();
 const redisClient = createClient({url:process.env.REDIS_URL});
@@ -58,24 +56,16 @@ function diffLists(previous, current) {
 }
 
 function canSendMail() {
-  return Boolean(MAIL_HOST && MAIL_FROM && MAIL_TO);
+  return Boolean(RESEND_API_KEY && MAIL_FROM && MAIL_TO);
 }
 
 async function sendChangeEmail({ added, removed, current, checkedAt }) {
   if (!canSendMail()) {
-    console.warn("Email notification skipped; SMTP configuration incomplete");
+    console.warn("Email notification skipped; Resend configuration incomplete");
     return false;
   }
 
-  const transporter = nodemailer.createTransport({
-    host: MAIL_HOST,
-    port: 465,
-    secure: true,
-    auth: {
-      user: MAIL_USER,
-      pass: MAIL_PASS,
-    },
-  });
+  const resend = new Resend(RESEND_API_KEY);
 
   const sections = [];
   if (added.length > 0) {
@@ -93,20 +83,18 @@ async function sendChangeEmail({ added, removed, current, checkedAt }) {
     .filter(Boolean)
     .join("\n\n");
 
-  const mailOptions = {
-    from: MAIL_FROM,
-    to: MAIL_TO,
-    subject: `School list updated (${added.length} added, ${removed.length} removed)`,
-    text: textBody,
-  };
-
   console.log("Sending change notification email", {
     to: MAIL_TO,
     added: added.length,
     removed: removed.length,
   });
 
-  await transporter.sendMail(mailOptions);
+  await resend.emails.send({
+    from: MAIL_FROM,
+    to: MAIL_TO,
+    subject: `School list updated (${added.length} added, ${removed.length} removed)`,
+    text: textBody,
+  });
 
   console.log("Email dispatched successfully");
 
