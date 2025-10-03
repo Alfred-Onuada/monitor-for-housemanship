@@ -67,16 +67,6 @@ async function sendChangeEmail({ added, removed, current, checkedAt }) {
     return false;
   }
 
-  console.log({
-    host: MAIL_HOST,
-    port: 465,
-    secure: true,
-    auth: {
-      user: MAIL_USER,
-      pass: MAIL_PASS,
-    },
-  })
-
   const transporter = nodemailer.createTransport({
     host: MAIL_HOST,
     port: 465,
